@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#0a0a0c">
+<title>Configurar IPTV</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0a0a0c; color: #f4f4f5; font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-text-size-adjust: 100%; }
+  main { max-width: 30rem; margin: 0 auto; padding: max(1.5rem, env(safe-area-inset-top)) 1rem 3rem; }
+  h1 { font-size: 1.6rem; margin: .5rem 0 .25rem; }
+  .sub { color: #a8a8b0; margin: 0 0 1.5rem; }
+  .seg { display: flex; background: #18181c; border-radius: 999px; padding: .25rem; margin-bottom: 1.25rem; }
+  .seg button { flex: 1; border: 0; border-radius: 999px; padding: .65rem .5rem; background: none; color: #a8a8b0; font: inherit; font-weight: 600; }
+  .seg button.on { background: #fff; color: #0a0a0c; }
+  label { display: block; font-size: .9rem; color: #b4b4bc; margin: 1rem 0 .35rem; }
+  input { width: 100%; font: inherit; font-size: 16px; padding: .8rem .9rem; border-radius: .7rem; border: 1px solid #2e2e35; background: #141417; color: #fff; outline: none; }
+  input:focus { border-color: #fff; }
+  .row { display: flex; gap: .5rem; }
+  .row input { flex: 1; }
+  .ghost { border: 1px solid #2e2e35; border-radius: .7rem; background: #18181c; color: #e4e4e7; font: inherit; padding: 0 .9rem; }
+  .hint { color: #8e8e96; font-size: .85rem; margin: .4rem 0 0; }
+  details { margin-top: 1.25rem; color: #a8a8b0; }
+  summary { cursor: pointer; padding: .3rem 0; }
+  .hidden { display: none !important; }
+  .send { width: 100%; margin-top: 1.75rem; border: 0; border-radius: 999px; padding: 1rem; background: #fff; color: #0a0a0c; font: inherit; font-weight: 700; font-size: 1.05rem; }
+  .send:disabled { opacity: .5; }
+  .msg { margin-top: 1.25rem; padding: 1rem; border-radius: .8rem; background: #18181c; }
+  .msg.ok { background: #0f2a1a; color: #86efac; }
+  .msg.err { background: #2a1010; color: #fca5a5; }
+  .lock { margin-top: 2rem; color: #6b6b73; font-size: .8rem; text-align: center; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Configurar IPTV</h1>
+  <p class="sub">Os dados vão direto para a TV que mostrou o código.</p>
+
+  <div id="nokey" class="msg err hidden">Abra esta página pelo código QR que aparece na tela de Configurações da TV.</div>
+
+  <form id="f" class="hidden" autocomplete="off">
+    <div class="seg">
+      <button type="button" data-mode="xtream" class="on">Usuário e senha</button>
+      <button type="button" data-mode="m3u">Link da lista</button>
+    </div>
+
+    <div id="g-xtream">
+      <label for="server">Servidor</label>
+      <input id="server" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="http://servidor.com:80">
+      <p class="hint">Pode colar aqui o link completo da lista (get.php?username=…) que eu separo usuário e senha.</p>
+      <label for="user">Usuário</label>
+      <input id="user" autocapitalize="off" autocorrect="off" spellcheck="false">
+      <label for="pass">Senha</label>
+      <div class="row">
+        <input id="pass" type="password" autocapitalize="off" autocorrect="off" spellcheck="false">
+        <button type="button" class="ghost" id="show">Mostrar</button>
+      </div>
+    </div>
+
+    <div id="g-m3u" class="hidden">
+      <label for="m3u">Link da lista M3U</label>
+      <input id="m3u" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="http://exemplo.com/lista.m3u">
+    </div>
+
+    <details>
+      <summary>Opções avançadas</summary>
+      <div id="g-fmt">
+        <label>Formato dos canais ao vivo</label>
+        <div class="seg">
+          <button type="button" data-fmt="ts" class="on">MPEG-TS (.ts)</button>
+          <button type="button" data-fmt="m3u8">HLS (.m3u8)</button>
+        </div>
+      </div>
+      <label for="epg">Link do guia EPG (opcional)</label>
+      <input id="epg" inputmode="url" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="em branco = guia do servidor">
+    </details>
+
+    <button class="send" id="send" type="submit">Enviar para a TV</button>
+    <div id="msg" class="msg hidden"></div>
+  </form>
+
+  <p class="lock">🔒 Criptografado de ponta a ponta: só a TV consegue ler.</p>
+</main>
+<script>
+(function () {
+  'use strict';
+  var RELAY = 'https://ntfy.sh/';
+  var $ = function (id) { return document.getElementById(id); };
+  var st = { mode: 'xtream', fmt: 'ts' };
+
+  // A chave vem depois do "#": o navegador nunca envia essa parte a servidor nenhum
+  var h = {};
+  location.hash.slice(1).split('&').forEach(function (p) { var i = p.indexOf('='); if (i > 0) h[p.slice(0, i)] = decodeURIComponent(p.slice(i + 1)); });
+  if (!/^iptv-[A-Za-z0-9]{10,}$/.test(h.t || '') || !h.k || !window.crypto || !crypto.subtle) { $('nokey').classList.remove('hidden'); return; }
+  var topic = h.t, rawKey = unb64(h.k);
+  history.replaceState(null, '', location.pathname);   // tira a chave do histórico
+  $('f').classList.remove('hidden');
+
+  function unb64(s) {
+    s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '=';
+    var b = atob(s), o = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) o[i] = b.charCodeAt(i); return o;
+  }
+  function b64url(u8) {
+    var s = ''; for (var i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i]);
+    return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function seg(attr, val) {
+    [].forEach.call(document.querySelectorAll('[' + attr + ']'), function (b) { b.classList.toggle('on', b.getAttribute(attr) === val); });
+  }
+  [].forEach.call(document.querySelectorAll('[data-mode]'), function (b) {
+    b.onclick = function () {
+      st.mode = b.getAttribute('data-mode'); seg('data-mode', st.mode);
+      $('g-xtream').classList.toggle('hidden', st.mode !== 'xtream');
+      $('g-m3u').classList.toggle('hidden', st.mode !== 'm3u');
+      $('g-fmt').classList.toggle('hidden', st.mode !== 'xtream');
+    };
+  });
+  [].forEach.call(document.querySelectorAll('[data-fmt]'), function (b) {
+    b.onclick = function () { st.fmt = b.getAttribute('data-fmt'); seg('data-fmt', st.fmt); };
+  });
+  $('show').onclick = function () {
+    var p = $('pass'), show = p.type === 'password';
+    p.type = show ? 'text' : 'password'; this.textContent = show ? 'Ocultar' : 'Mostrar';
+  };
+
+  // Colou o link completo da lista no campo do servidor: separa servidor, usuário e senha
+  $('server').addEventListener('input', function () {
+    var v = this.value.trim(), m = v.match(/^(https?:\/\/[^\/?#]+)\/(?:get|player_api)\.php\?(.*)$/i);
+    if (!m) return;
+    var q = {}; m[2].split('&').forEach(function (p) { var i = p.indexOf('='); if (i > 0) q[p.slice(0, i)] = decodeURIComponent(p.slice(i + 1)); });
+    if (!q.username || !q.password) return;
+    this.value = m[1]; $('user').value = q.username; $('pass').value = q.password;
+    if (q.output === 'm3u8' || q.output === 'hls') { st.fmt = 'm3u8'; seg('data-fmt', 'm3u8'); }
+  });
+
+  function show(text, cls) { var m = $('msg'); m.textContent = text; m.className = 'msg ' + (cls || ''); }
+
+  $('f').onsubmit = function (e) {
+    e.preventDefault();
+    var cfg = { mode: st.mode, epg: $('epg').value.trim() };
+    if (st.mode === 'xtream') {
+      cfg.server = $('server').value.trim(); cfg.user = $('user').value.trim(); cfg.pass = $('pass').value; cfg.fmt = st.fmt;
+      if (!cfg.server || !cfg.user || !cfg.pass) return show('Preencha servidor, usuário e senha.', 'err');
+    } else {
+      cfg.m3u = $('m3u').value.trim();
+      if (!/^https?:\/\//i.test(cfg.m3u)) return show('Cole um link que comece com http:// ou https://', 'err');
+    }
+    $('send').disabled = true;
+    show('Enviando…');
+    var iv = crypto.getRandomValues(new Uint8Array(12));
+    crypto.subtle.importKey('raw', rawKey, { name: 'AES-GCM' }, false, ['encrypt']).then(function (k) {
+      return crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, k, new TextEncoder().encode(JSON.stringify(cfg)));
+    }).then(function (ct) {
+      var all = new Uint8Array(12 + ct.byteLength); all.set(iv); all.set(new Uint8Array(ct), 12);
+      return fetch(RELAY + topic, { method: 'POST', body: 'v1.' + b64url(all) });
+    }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function (sent) {
+      show('Enviado. Esperando a TV confirmar…');
+      waitAck(sent.id, Date.now());
+    }).catch(function () {
+      $('send').disabled = false;
+      show('Não consegui enviar. Confira a internet do celular e tente de novo.', 'err');
+    });
+  };
+
+  function waitAck(since, t0) {
+    fetch(RELAY + topic + '/json?poll=1&since=' + encodeURIComponent(since)).then(function (r) { return r.text(); }).then(function (t) {
+      var ok = t.split('\n').some(function (l) { try { return JSON.parse(l).message === 'recebido'; } catch (e) { return false; } });
+      if (ok) { show('Pronto! A TV recebeu e está conectando. Pode fechar esta página.', 'ok'); return; }
+      if (Date.now() - t0 > 60000) {
+        $('send').disabled = false;
+        return show('A TV não respondeu. Ela ainda está na tela de Configurações com o código? Se a TV saiu dessa tela, abra de novo e leia o novo código.', 'err');
+      }
+      setTimeout(function () { waitAck(since, t0); }, 2000);
+    }).catch(function () { setTimeout(function () { waitAck(since, t0); }, 3000); });
+  }
+})();
+</script>
+</body>
+</html>
