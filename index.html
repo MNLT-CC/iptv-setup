@@ -93,6 +93,8 @@
   var st = { mode: 'xtream', fmt: 'ts' };
 
   // A chave vem depois do "#": o navegador nunca envia essa parte a servidor nenhum
+  // Leu outro QR com esta página ainda aberta: só o "#" muda, então recarrega para usar a TV nova
+  window.addEventListener('hashchange', function () { location.reload(); });
   var h = {};
   location.hash.slice(1).split('&').forEach(function (p) { var i = p.indexOf('='); if (i > 0) h[p.slice(0, i)] = decodeURIComponent(p.slice(i + 1)); });
   if (!/^iptv-[A-Za-z0-9]{10,}$/.test(h.t || '') || !h.k || !window.crypto || !crypto.subtle) { $('nokey').classList.remove('hidden'); return; }
