@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<!-- Segurança: a página só fala com o servidor do MNL e não carrega nada de fora -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src https://iptv-sync.play-iptv.workers.dev; img-src data:; base-uri 'none'; form-action 'none'">
+<meta name="theme-color" content="#0a0a0c">
+<title>MNL Premium</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #0a0a0c; color: #f4f4f5; font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-text-size-adjust: 100%; }
+  main { max-width: 30rem; margin: 0 auto; padding: max(1.5rem, env(safe-area-inset-top)) 1rem 3rem; }
+  h1 { font-size: 1.6rem; margin: .5rem 0 .25rem; }
+  .sub { color: #a8a8b0; margin: 0 0 1.5rem; }
+  .hidden { display: none !important; }
+  ul.benefits { list-style: none; padding: 0; margin: 0 0 1.5rem; }
+  ul.benefits li { padding: .3rem 0 .3rem 1.6rem; position: relative; color: #e4e4e7; }
+  ul.benefits li::before { content: "✓"; position: absolute; left: 0; color: #fff; font-weight: 700; }
+  .plan { display: block; width: 100%; text-align: left; border: 0; border-radius: 1rem; padding: 1rem 1.1rem; margin-bottom: .75rem; background: #18181c; color: inherit; font: inherit; box-shadow: inset 0 0 0 2px #2e2e35; }
+  .plan.on { box-shadow: inset 0 0 0 2px #fff; }
+  .plan b { display: block; font-size: 1.05rem; }
+  .plan span { color: #a8a8b0; font-size: .9rem; }
+  .price { float: right; font-size: 1.2rem; font-weight: 700; }
+  .main-btn { width: 100%; margin-top: 1rem; border: 0; border-radius: 999px; padding: 1rem; background: #fff; color: #0a0a0c; font: inherit; font-weight: 700; font-size: 1.05rem; }
+  .main-btn:disabled { opacity: .5; }
+  .msg { margin-top: 1.25rem; padding: 1rem; border-radius: .8rem; background: #18181c; }
+  .msg.ok { background: #0f2a1a; color: #86efac; }
+  .msg.err { background: #2a1010; color: #fca5a5; }
+  .tv { display: flex; align-items: center; justify-content: space-between; padding: .8rem 1rem; border-radius: .8rem; background: #18181c; margin-bottom: .5rem; font-variant-numeric: tabular-nums; letter-spacing: .05rem; }
+  .tv button, .row button { border: 1px solid #2e2e35; border-radius: .6rem; background: #141417; color: #e4e4e7; font: inherit; padding: .4rem .8rem; }
+  .row { display: flex; gap: .5rem; margin-top: .5rem; }
+  .row input { flex: 1; font: inherit; font-size: 16px; padding: .7rem .9rem; border-radius: .7rem; border: 1px solid #2e2e35; background: #141417; color: #fff; text-transform: uppercase; letter-spacing: .1rem; }
+  label { display: block; font-size: .9rem; color: #b4b4bc; margin: 1.5rem 0 .2rem; }
+  .hint { color: #8e8e96; font-size: .85rem; margin: .4rem 0 0; }
+  .lock { margin-top: 2rem; color: #6b6b73; font-size: .8rem; text-align: center; }
+</style>
+</head>
+<body>
+<main>
+  <!-- escolher o plano -->
+  <section id="v-buy" class="hidden">
+    <h1>MNL Premium</h1>
+    <p class="sub">Vale para até 3 TVs da sua casa. TVs com a mesma lista entram sozinhas.</p>
+    <ul class="benefits">
+      <li>Vários perfis</li><li>Sincronização entre TVs</li><li>Minha lista</li>
+      <li>Assistidos e progresso por temporada</li><li>Guia completo de programação</li>
+    </ul>
+    <button class="plan" data-plan="year"><span class="price">R$ 24,90</span><b>Anual</b><span>1 ano de Premium</span></button>
+    <button class="plan on" data-plan="life"><span class="price">R$ 49,90</span><b>Vitalício</b><span>Pagamento único, para sempre</span></button>
+    <button class="main-btn" id="buy">Assinar com Pix ou cartão</button>
+    <div id="buy-msg" class="msg hidden"></div>
+  </section>
+
+  <!-- esperando o pagamento -->
+  <section id="v-wait" class="hidden">
+    <h1>Confirmando o pagamento…</h1>
+    <p class="sub">Assim que o Mercado Pago confirmar, sua TV vira Premium sozinha. Com Pix leva poucos segundos.</p>
+    <div id="wait-msg" class="msg">Aguardando confirmação…</div>
+  </section>
+
+  <!-- assinatura ativa: TVs -->
+  <section id="v-manage" class="hidden">
+    <h1 id="m-title">Pronto! Você é Premium</h1>
+    <p class="sub" id="m-sub"></p>
+    <div id="m-tvs"></div>
+    <div id="m-add-this" class="hidden"><button class="main-btn" id="add-this">Adicionar esta TV</button></div>
+    <label for="code">Adicionar outra TV</label>
+    <div class="row"><input id="code" maxlength="9" placeholder="1A2B-3C4D" autocapitalize="characters" autocomplete="off" spellcheck="false"><button id="add">Adicionar</button></div>
+    <p class="hint">O código aparece na TV em Perfis → MNL Premium. TVs com a mesma lista entram sozinhas.</p>
+    <div id="m-msg" class="msg hidden"></div>
+  </section>
+
+  <div id="nodev" class="msg err hidden">Abra esta página pelo código QR da tela MNL Premium na TV.</div>
+  <p class="lock">🔒 O pagamento é feito no Mercado Pago. O MNL não vê os dados do seu cartão.</p>
+</main>
+<script>
+(function () {
+  'use strict';
+  var API = 'https://iptv-sync.play-iptv.workers.dev';
+  var $ = function (id) { return document.getElementById(id); };
+  function store(k, v) { try { if (v === undefined) return JSON.parse(localStorage.getItem(k) || 'null'); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch (e) { return null; } }
+  function view(id) { ['v-buy', 'v-wait', 'v-manage'].forEach(function (v) { $(v).classList.toggle('hidden', v !== id); }); }
+  function msg(id, text, cls) { var m = $(id); m.textContent = text; m.className = 'msg ' + (cls || ''); }
+  function post(path, body) {
+    return fetch(API + path, { method: 'POST', body: JSON.stringify(body) }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) throw new Error(j.error || 'Erro ' + r.status); return j; });
+    });
+  }
+  function code(d) { return (d.slice(0, 4) + '-' + d.slice(4, 8)).toUpperCase(); }
+
+  // A TV manda o aparelho depois do "#" (não vai para servidor nenhum ao abrir a página)
+  var h = {};
+  location.hash.slice(1).split('&').forEach(function (p) { var i = p.indexOf('='); if (i > 0) h[p.slice(0, i)] = decodeURIComponent(p.slice(i + 1)); });
+  if (/^[a-f0-9]{64}$/.test(h.d || '')) store('mnl.d', h.d);
+  if (location.hash) history.replaceState(null, '', location.pathname + location.search);
+  var device = store('mnl.d'), lic = store('mnl.lic'), order = store('mnl.order');
+
+  // ---------- comprar ----------
+  var plan = 'life';
+  [].forEach.call(document.querySelectorAll('.plan'), function (b) {
+    b.onclick = function () { plan = b.getAttribute('data-plan'); [].forEach.call(document.querySelectorAll('.plan'), function (x) { x.classList.toggle('on', x === b); }); };
+  });
+  $('buy').onclick = function () {
+    $('buy').disabled = true; msg('buy-msg', 'Abrindo o pagamento…');
+    post('/pay/v1/order', { d: device, plan: plan }).then(function (o) {
+      store('mnl.order', { id: o.id, secret: o.secret });
+      if (o.url) { location.href = o.url; return; }
+      $('buy').disabled = false;
+      msg('buy-msg', 'O pagamento ainda não está disponível (fase de testes). Pedido ' + o.id + '.', 'err');
+      waitPaid({ id: o.id, secret: o.secret });
+    }).catch(function (e) { $('buy').disabled = false; msg('buy-msg', 'Não consegui abrir o pagamento: ' + e.message, 'err'); });
+  };
+
+  // ---------- esperar o pagamento ----------
+  function waitPaid(o, quiet) {
+    if (!quiet) view('v-wait');
+    var t0 = Date.now();
+    (function poll() {
+      fetch(API + '/pay/v1/order/' + o.id + '?k=' + encodeURIComponent(o.secret), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (s) {
+        if (s.status === 'paid') { store('mnl.order', null); lic = { lic: s.lic, key: s.key }; store('mnl.lic', lic); manage(true); return; }
+        if (Date.now() - t0 > 15 * 60000) { if (!quiet) msg('wait-msg', 'Ainda não recebemos a confirmação. Se você pagou, ela chega em alguns minutos; pode voltar a esta página depois.', 'err'); return; }
+        setTimeout(poll, 3000);
+      }).catch(function () { setTimeout(poll, 5000); });
+    })();
+  }
+
+  // ---------- assinatura: TVs ----------
+  function render(s, fresh) {
+    view('v-manage');
+    $('m-title').textContent = fresh ? 'Pronto! Você é Premium' : 'Sua assinatura MNL Premium';
+    $('m-sub').textContent = (s.plan === 'life' ? 'Vitalício' : s.until ? 'Anual, até ' + new Date(s.until).toLocaleDateString('pt-BR') : '') +
+      ' · ' + s.tvs.length + ' de ' + s.max + ' TVs' + (fresh ? '. A TV já foi liberada.' : '');
+    $('m-tvs').innerHTML = '';
+    s.tvs.forEach(function (c) {
+      var row = document.createElement('div'); row.className = 'tv';
+      var name = document.createElement('span'); name.textContent = 'TV ' + c + (device && code(device) === c ? '  (esta)' : '');
+      var rm = document.createElement('button'); rm.textContent = 'Remover';
+      rm.onclick = function () { if (confirm('Tirar o Premium da TV ' + c + '?')) act('remove', c); };
+      row.appendChild(name); row.appendChild(rm); $('m-tvs').appendChild(row);
+    });
+    var here = device && s.tvs.indexOf(code(device)) < 0;
+    $('m-add-this').classList.toggle('hidden', !here || s.tvs.length >= s.max);
+  }
+  function act(action, c) {
+    return post('/lic/v1/manage', { lic: lic.lic, key: lic.key, action: action, code: c }).then(function (s) {
+      render(s); if (action === 'add') msg('m-msg', 'TV ' + c.toUpperCase() + ' adicionada. Ela vira Premium em instantes.', 'ok');
+      if (action === 'remove') msg('m-msg', 'TV ' + c + ' removida.', 'ok');
+    }).catch(function (e) { msg('m-msg', e.message, 'err'); });
+  }
+  function manage(fresh) { post('/lic/v1/manage', { lic: lic.lic, key: lic.key, action: 'list' }).then(function (s) { render(s, fresh); }).catch(function () { store('mnl.lic', null); lic = null; start(); }); }
+  $('add').onclick = function () { var c = $('code').value.trim(); if (c) act('add', c); };
+  $('add-this').onclick = function () { act('add', code(device)); };
+
+  function start() {
+    if (lic) return manage(false);
+    if (order) return waitPaid(order);
+    if (!device) { $('nodev').classList.remove('hidden'); return; }
+    view('v-buy');
+  }
+  start();
+})();
+</script>
+</body>
+</html>
