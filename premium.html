@@ -25,6 +25,8 @@
   .plan b { display: block; font-size: 1.05rem; }
   .plan span { color: #a8a8b0; font-size: .9rem; }
   .price { float: right; font-size: 1.2rem; font-weight: 700; }
+  .tag { display: inline-block; margin-left: .4rem; padding: .05rem .5rem; border-radius: 1rem; background: #fff; color: #0a0a0c; font-size: .75rem; font-weight: 700; vertical-align: .1rem; }
+  .link-btn { display: block; width: 100%; margin-top: .75rem; border: 0; background: none; color: #a8a8b0; font: inherit; text-decoration: underline; padding: .5rem; }
   .main-btn { width: 100%; margin-top: 1rem; border: 0; border-radius: 999px; padding: 1rem; background: #fff; color: #0a0a0c; font: inherit; font-weight: 700; font-size: 1.05rem; }
   .main-btn:disabled { opacity: .5; }
   .msg { margin-top: 1.25rem; padding: 1rem; border-radius: .8rem; background: #18181c; }
@@ -43,15 +45,15 @@
 <main>
   <!-- escolher o plano -->
   <section id="v-buy" class="hidden">
-    <h1>MNL Premium</h1>
-    <p class="sub">Vale para até 3 TVs da sua casa. TVs com a mesma lista entram sozinhas.</p>
+    <h1 id="b-title">MNL Premium</h1>
+    <p class="sub" id="b-sub">Funciona em até 3 TVs da sua casa. As TVs com a mesma lista entram sozinhas.</p>
     <ul class="benefits">
       <li>Vários perfis</li><li>Sincronização entre TVs</li><li>Minha lista</li>
       <li>Assistidos e progresso por temporada</li><li>Guia completo de programação</li>
     </ul>
-    <button class="plan" data-plan="year"><span class="price">R$ 24,90</span><b>Anual</b><span>1 ano de Premium</span></button>
-    <button class="plan on" data-plan="life"><span class="price">R$ 49,90</span><b>Vitalício</b><span>Pagamento único, para sempre</span></button>
-    <button class="main-btn" id="buy">Assinar com Pix ou cartão</button>
+    <button class="plan" data-plan="year"><span class="price">R$ 24,90</span><b>Anual</b><span>1 ano, sem renovação automática</span></button>
+    <button class="plan on" data-plan="life"><span class="price">R$ 49,90</span><b>Vitalício <i class="tag">melhor valor</i></b><span>Pague uma vez, use para sempre</span></button>
+    <button class="main-btn" id="buy">Pagar R$ 49,90 com Pix ou cartão</button>
     <div id="buy-msg" class="msg hidden"></div>
   </section>
 
@@ -60,6 +62,7 @@
     <h1>Confirmando o pagamento…</h1>
     <p class="sub">Assim que o Mercado Pago confirmar, sua TV vira Premium sozinha. Com Pix leva poucos segundos.</p>
     <div id="wait-msg" class="msg">Aguardando confirmação…</div>
+    <button class="link-btn" id="wait-back">Escolher outro plano</button>
   </section>
 
   <!-- assinatura ativa: TVs -->
@@ -68,6 +71,7 @@
     <p class="sub" id="m-sub"></p>
     <div id="m-tvs"></div>
     <div id="m-add-this" class="hidden"><button class="main-btn" id="add-this">Adicionar esta TV</button></div>
+    <div id="m-renew" class="hidden"><button class="main-btn" id="renew">Renovar o Premium</button></div>
     <label for="code">Adicionar outra TV</label>
     <div class="row"><input id="code" maxlength="9" placeholder="1A2B-3C4D" autocapitalize="characters" autocomplete="off" spellcheck="false"><button id="add">Adicionar</button></div>
     <p class="hint">O código aparece na TV em Perfis → MNL Premium. TVs com a mesma lista entram sozinhas.</p>
@@ -102,12 +106,16 @@
   // ---------- comprar ----------
   var plan = 'life';
   [].forEach.call(document.querySelectorAll('.plan'), function (b) {
-    b.onclick = function () { plan = b.getAttribute('data-plan'); [].forEach.call(document.querySelectorAll('.plan'), function (x) { x.classList.toggle('on', x === b); }); };
+    b.onclick = function () {
+      plan = b.getAttribute('data-plan');
+      [].forEach.call(document.querySelectorAll('.plan'), function (x) { x.classList.toggle('on', x === b); });
+      $('buy').textContent = 'Pagar ' + (plan === 'life' ? 'R$ 49,90' : 'R$ 24,90') + ' com Pix ou cartão';
+    };
   });
   $('buy').onclick = function () {
     $('buy').disabled = true; msg('buy-msg', 'Abrindo o pagamento…');
     post('/pay/v1/order', { d: device, plan: plan }).then(function (o) {
-      store('mnl.order', { id: o.id, secret: o.secret });
+      store('mnl.order', { id: o.id, secret: o.secret, at: Date.now() });
       if (o.url) { location.href = o.url; return; }
       $('buy').disabled = false;
       msg('buy-msg', 'O pagamento ainda não está disponível (fase de testes). Pedido ' + o.id + '.', 'err');
@@ -116,10 +124,13 @@
   };
 
   // ---------- esperar o pagamento ----------
+  var waitGen = 0;
+  $('wait-back').onclick = function () { waitGen++; store('mnl.order', null); order = null; $('buy').disabled = false; $('buy-msg').className = 'msg hidden'; view('v-buy'); };
   function waitPaid(o, quiet) {
     if (!quiet) view('v-wait');
-    var t0 = Date.now();
+    var t0 = Date.now(), gen = ++waitGen;
     (function poll() {
+      if (gen !== waitGen) return;
       fetch(API + '/pay/v1/order/' + o.id + '?k=' + encodeURIComponent(o.secret), { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (s) {
         if (s.status === 'paid') { store('mnl.order', null); lic = { lic: s.lic, key: s.key }; store('mnl.lic', lic); manage(true); return; }
         if (Date.now() - t0 > 15 * 60000) { if (!quiet) msg('wait-msg', 'Ainda não recebemos a confirmação. Se você pagou, ela chega em alguns minutos; pode voltar a esta página depois.', 'err'); return; }
@@ -131,15 +142,18 @@
   // ---------- assinatura: TVs ----------
   function render(s, fresh) {
     view('v-manage');
-    $('m-title').textContent = fresh ? 'Pronto! Você é Premium' : 'Sua assinatura MNL Premium';
-    $('m-sub').textContent = (s.plan === 'life' ? 'Vitalício' : s.until ? 'Anual, até ' + new Date(s.until).toLocaleDateString('pt-BR') : '') +
-      ' · ' + s.tvs.length + ' de ' + s.max + ' TVs' + (fresh ? '. A TV já foi liberada.' : '');
+    var exp = !s.active;
+    $('m-title').textContent = fresh ? 'Pronto! Você é Premium' : exp ? 'Seu Premium venceu' : 'Seu MNL Premium';
+    $('m-sub').textContent = exp ? 'Renove para as suas TVs voltarem a ter tudo. O novo ano começa hoje.'
+      : (s.plan === 'life' ? 'Vitalício' : 'Anual, até ' + new Date(s.until).toLocaleDateString('pt-BR')) +
+        ' · ' + s.tvs.length + ' de ' + s.max + ' TVs' + (fresh ? '. Sua TV já foi liberada.' : '');
+    $('m-renew').classList.toggle('hidden', !(exp || (s.plan === 'year' && s.until - Date.now() < 30 * 864e5)) || !device);
     $('m-tvs').innerHTML = '';
     s.tvs.forEach(function (c) {
       var row = document.createElement('div'); row.className = 'tv';
       var name = document.createElement('span'); name.textContent = 'TV ' + c + (device && code(device) === c ? '  (esta)' : '');
       var rm = document.createElement('button'); rm.textContent = 'Remover';
-      rm.onclick = function () { if (confirm('Tirar o Premium da TV ' + c + '?')) act('remove', c); };
+      rm.onclick = function () { if (confirm('Tirar o Premium da TV ' + c + '? Ela volta para o plano grátis.')) act('remove', c); };
       row.appendChild(name); row.appendChild(rm); $('m-tvs').appendChild(row);
     });
     var here = device && s.tvs.indexOf(code(device)) < 0;
@@ -147,15 +161,29 @@
   }
   function act(action, c) {
     return post('/lic/v1/manage', { lic: lic.lic, key: lic.key, action: action, code: c }).then(function (s) {
-      render(s); if (action === 'add') msg('m-msg', 'TV ' + c.toUpperCase() + ' adicionada. Ela vira Premium em instantes.', 'ok');
+      render(s); if (action === 'add') { $('code').value = ''; msg('m-msg', 'TV ' + c.toUpperCase() + ' adicionada. Ela vira Premium em instantes.', 'ok'); }
       if (action === 'remove') msg('m-msg', 'TV ' + c + ' removida.', 'ok');
     }).catch(function (e) { msg('m-msg', e.message, 'err'); });
   }
   function manage(fresh) { post('/lic/v1/manage', { lic: lic.lic, key: lic.key, action: 'list' }).then(function (s) { render(s, fresh); }).catch(function () { store('mnl.lic', null); lic = null; start(); }); }
   $('add').onclick = function () { var c = $('code').value.trim(); if (c) act('add', c); };
   $('add-this').onclick = function () { act('add', code(device)); };
+  $('renew').onclick = function () { $('b-title').textContent = 'Renovar o MNL Premium'; $('b-sub').textContent = 'Vale para as mesmas TVs. No anual, o novo ano começa quando o atual terminar.'; view('v-buy'); };
+
+  // Volta do Mercado Pago: ele acrescenta o status na URL (approved, pending, rejected/null = desistiu)
+  var q = {};
+  location.search.slice(1).split('&').forEach(function (p) { var i = p.indexOf('='); if (i > 0) q[p.slice(0, i)] = decodeURIComponent(p.slice(i + 1)); });
+  var mpStatus = q.collection_status || q.status || '';
+  if (q.volta) history.replaceState(null, '', location.pathname);
 
   function start() {
+    if (order && q.volta && /rejected|null|failure|cancel/.test(mpStatus)) {
+      store('mnl.order', null); order = null;
+      view('v-buy'); msg('buy-msg', 'O pagamento não foi concluído. Você pode tentar de novo ou escolher outra forma de pagamento.', 'err');
+      return;
+    }
+    if (order && q.volta && mpStatus === 'pending') { waitPaid(order); msg('wait-msg', 'Pagamento em análise. Assim que for aprovado, sua TV vira Premium sozinha; pode fechar esta página.'); return; }
+    if (order && !q.volta && Date.now() - (order.at || 0) > 30 * 60000) { store('mnl.order', null); order = null; }   // pedido abandonado
     if (lic) return manage(false);
     if (order) return waitPaid(order);
     if (!device) { $('nodev').classList.remove('hidden'); return; }
