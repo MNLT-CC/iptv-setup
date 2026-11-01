@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
-<!-- Segurança: a página só fala com o relay (ntfy.sh) e não carrega nada de fora -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src https://ntfy.sh; img-src data:; base-uri 'none'; form-action 'none'">
+<!-- Segurança: a página só fala com o nosso relay e não carrega nada de fora -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src https://iptv-sync.play-iptv.workers.dev; img-src data:; base-uri 'none'; form-action 'none'">
 <meta name="theme-color" content="#0a0a0c">
 <title>Configurar MNL</title>
 <style>
@@ -90,7 +90,7 @@
 <script>
 (function () {
   'use strict';
-  var RELAY = 'https://ntfy.sh/';
+  var RELAY = 'https://iptv-sync.play-iptv.workers.dev/relay/';
   var $ = function (id) { return document.getElementById(id); };
   var st = { mode: 'xtream', fmt: 'ts' };
 
